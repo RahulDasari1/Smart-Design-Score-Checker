@@ -1,0 +1,19 @@
+body {
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 20px;
+  background-color: #f4f4f4;
+}
+
+.container {
+  text-align: center;
+}
+
+#score-display {
+  margin: 20px 0;
+  font-size: 24px;
+}
+
+#feedback-section {
+  margin-top: 20px;
+}
