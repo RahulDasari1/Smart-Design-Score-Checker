@@ -1,6 +1,7 @@
 # Smart Design Score Checker
 
-![image](https://github.com/user-attachments/assets/374e8705-6a77-4185-9ca1-3b2217610017)
+![e2b6f8e2-5b15-478c-976d-771a285795cd](https://github.com/user-attachments/assets/1780152b-6f4d-46b8-ad55-1f2ed8b41fb1)
+
 
 ## Overview
 
