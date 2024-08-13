@@ -73,3 +73,6 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 ## Contact
 
 For support or inquiries, please contact dasarirahulpatel.drp@gmail.com.
+
+<br>
+-Happy Coding
