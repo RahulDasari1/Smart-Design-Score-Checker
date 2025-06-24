@@ -1,6 +1,10 @@
 
 # Smart Design Score Checker
 
+![image](https://github.com/user-attachments/assets/15790f04-0990-4438-b52b-0fbd6c583603)   ![image](https://github.com/user-attachments/assets/1e6d2682-f391-451f-8dda-c88fb9092cdf)
+
+
+
 ## Project Overview
 The **Smart Design Score Checker** is an innovative tool developed for the **Adobe GenSolve Hackathon**, where it achieved recognition as a **Top 5 Percentile** project. This application leverages advanced AI to evaluate and score design assets based on key criteria such as aesthetics, usability, and alignment with design principles. Our goal is to empower designers and creators to optimize their work by providing actionable feedback and data-driven insights.
 
