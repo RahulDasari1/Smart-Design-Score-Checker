@@ -1,0 +1,831 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DesignScore | AI-Powered Design Analysis for Graphic Designers</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            scroll-behavior: smooth;
+        }
+        h1, h2, h3, h4, h5, h6 {
+            font-family: 'Poppins', sans-serif;
+        }
+        .gradient-bg {
+            background: linear-gradient(135deg, #4158D0 0%, #C850C0 46%, #FFCC70 100%);
+        }
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        .score-meter {
+            transition: all 0.8s ease-in-out;
+        }
+        .upload-area {
+            border: 2px dashed #d1d5db;
+            transition: all 0.3s ease;
+        }
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #8b5cf6;
+            background-color: rgba(139, 92, 246, 0.05);
+        }
+        .analysis-panel {
+            height: 600px;
+            overflow-y: auto;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        /* Animation */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+        .score-circle {
+            position: relative;
+            width: 120px;
+            height: 120px;
+        }
+        .score-circle svg {
+            transform: rotate(-90deg);
+        }
+        .score-circle circle {
+            fill: none;
+            stroke-width: 8;
+            stroke-linecap: round;
+        }
+        .score-bg {
+            stroke: #e2e8f0;
+        }
+        .score-value {
+            transition: stroke-dashoffset 1s ease;
+        }
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        .tooltip .tooltip-text {
+            visibility: hidden;
+            width: 200px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 8px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm fixed w-full z-10">
+        <div class="container mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center">
+                <h1 class="text-2xl font-bold text-gray-800">DesignScore</h1>
+            </div>
+            <div class="flex items-center space-x-6">
+                <a href="#features" class="text-gray-600 hover:text-purple-600 font-medium py-2">Features</a>
+                <a href="#how-it-works" class="text-gray-600 hover:text-purple-600 font-medium py-2">How It Works</a>
+                <a href="#testimonials" class="text-gray-600 hover:text-purple-600 font-medium py-2">Testimonials</a>
+                <a href="#pricing" class="text-gray-600 hover:text-purple-600 font-medium py-2">Pricing</a>
+                <div class="flex flex-col space-y-2 pt-2 border-t border-gray-100">
+                    <button class="text-purple-600 hover:text-purple-700 font-medium py-2">Sign In</button>
+                    <button class="bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-6 rounded-full transition duration-300">Sign Up Free</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="pt-28 pb-16 md:pt-32 md:pb-24">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row items-center">
+                <div class="md:w-1/2 mb-10 md:mb-0">
+                    <h1 class="text-4xl md:text-5xl font-bold text-gray-800 mb-6 leading-tight">
+                        Elevate Your Designs with <span class="text-transparent bg-clip-text gradient-bg">AI-Powered</span> Feedback
+                    </h1>
+                    <p class="text-lg text-gray-600 mb-8">
+                        Upload your graphic designs and get instant professional analysis, scores, and actionable suggestions to improve your work and meet industry standards.
+                    </p>
+                    <div class="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
+                        <a href="#upload-section" class="bg-purple-600 hover:bg-purple-700 text-white font-medium py-3 px-8 rounded-full transition duration-300 shadow-lg text-center">
+                            Analyze Your Design
+                        </a>
+                        <button class="border border-purple-600 text-purple-600 hover:bg-purple-50 font-medium py-3 px-8 rounded-full transition duration-300 text-center">
+                            Watch Demo
+                        </button>
+                    </div>
+                </div>
+                <div class="md:w-1/2">
+                    <img src="https://via.placeholder.com/500" alt="Design Analysis Preview" class="w-full rounded-lg shadow-lg">
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Brands Section -->
+    <section class="py-10 bg-gray-100">
+        <div class="container mx-auto px-4">
+            <p class="text-center text-gray-500 mb-8">Compatible with your favorite design tools</p>
+            <div class="flex flex-wrap justify-center items-center gap-8 md:gap-16">
+                <div class="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 240 234" class="text-gray-700">
+                        <path d="M42.5 0h155C221 0 240 19 240 42.5v149c0 23.5-19 42.5-42.5 42.5h-155C19 234 0 215 0 191.5v-149C0 19 19 0 42.5 0z" fill="#001e36"/>
+                        <path d="M54 164.1V61.2c0-.7.3-1.1 1-1.1 1.7 0 3.3 0 5.6-.1 2.4-.1 4.9-.1 7.6-.1 2.7 0 5.6 0 8.7.1 3.1.1 6.1.1 9.1.1 8.2 0 15.1 2 0.6 3.1 5.1.7 9.6 4.5 13.4 8.2 3.2 3.2 5.7 7.1 7.2 11.4 1.5 4.2 2.3 8.5 2.3 13 0 8.6-2 15.7-6 21.3s-9.6 9.8-16.1 12.2c-6.8 2.5-14.3 3.4-22.5 3.4-2.4 0-4 0-5-.1-1-.1-1.2-.4-.1.3.1v32.1c.1.7-.4 1.3-1.1 1.4h-19.4c-.8 0-1.2-.4-1.2-1.3zm21.8-84.7v33.6c1.4.1 2.7.2 3.9.2h5.3c3.9 0 7.8-.6 11.5-1.8 3.2-.9 5.9-2.8 8-5.4 2-2.6 3.1-6.1 3.1-10.6 0-3.5-.8-6.4-2.4-8.7s-3.8-4.2-6.6-5.2c-3.2-1.2-6.6-1.8-10-1.7-1.6 0-3.1 0-4.6.1-1.5.1-2.8.1-4.2.1-1.4 0-2.5-.1-4-.1zM192 106.9c-3.1-6.2-2.7-9.6-3.4-3.7-.8-7.4-1.3-11.2-1.3-2-.1-4.1.2-6.7-1.3.3-2.4 1-3.1 2-5.8-8 1.8-8 2.7s.4 1.8 1 2.6c.9 1.1 2.1 2.3.4 2.7 2.3 1.2 4.7 2.3 7.1 3.3 5.4 1.8 10.6 4.3 15.4 7.3 3.3 2.1 6 4.9 7.9 8.3 1.6 3.2 2.4 6.7 2.3 10.3.1 4.7-1.3 9.4-3.9 13.3-2.8 4-6.7 7.1-11.2 8.9-4.9 2.1-10.9 3.2-18.1 3.2-4.6 0-9.1-.4-13.6-1.3-3.5-.6-7-1.7-10.2-3.2-.7-.4-1.2-1.1-1.1-1.9v-17.4c0-.3.1-.7.4-.9s.6-.1.9.1c3.9 2.3 8.3.9 12.4 4.9 3.8.9 7.8 1.4 11.8 1.4 6.3 0 9.5-1.9 9.5-5.7 0-1.7-.9-3.3-2.4-4.2-3.7-2.3-7.6-4.2-11.8-5.7-3.9-1.4-7.6-3.2-11.2-5.3-2.7-1.6-5-3.8-6.8-6.3-1.6-2.4-2.4-5.3-2.3-8.1-.1-4.4 1.2-8.7 3.8-12.1 2.7-3.6 6.5-6.4 10.9-8 4.7-1.9 10.1-2.8 16.3-2.8 4.3 0 8.7.4 12.9 1.2 3.5.7 6.9 1.7 10.1 3.8.3 1.3 1.1 2.1 1.8v16.3c0 .4-.2.8-.5 1-.9.6-1.7.3-2.4-.1z" fill="#31a8ff"/>
+                    </svg>
+                    <span class="ml-2 text-gray-700 font-medium">Photoshop</span>
+                </div>
+                <div class="flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 240 234" class="text-gray-700">
+                        <path d="M42.5 0h155C221 0 240 19 240 42.5v149c0 23.5-19 42.5-42.5 42.5h-155C19 234 0 215 0 191.5v-149C0 19 19 0 42.5 0z" fill="#261300"/>
+                        <path d="M116 140H78.8V52.8c0-.7.3-1.1 1-1.1h36.2c8.2 0 15.1 2 0.5 3.1 5.1.7 9.6 4.5 13.4 8.2 3.2 3.2 5.7 7.1 7.2 11.4 1.5 4.2 2.3 8.5 2.3 13 0 8.6-2 15.7-6 21.3s-9.6 9.8-16.1 12.2c-6.8 2.5-14.3 3.4-22.5 3.4-2.4 0-4 0-5-.1s-2.4-.1-4.3-.1V140zm21.8-84.7c-2.2-.9-5.5-1.3-9.8-1.3h-5.9c-1.9 0-3.5 0-4.8.1s-2.4.1-3.3.1v33.6c1.4.1 2.7.2 3.9.2h5.3c3.9 0 7.8-.6 11.5-1.8 3.2-.9 5.9-2.8 8-5.4 2-2.6 3.1-6.1 3.1-10.6 0-3.5-.8-6.4-2.4-8.7-1.6-2.3-3.8-4.2-6.6-5.2z" fill="#ff9a00"/>
+                    </svg>
+                    <span class="ml-2 text-gray-700 font-medium">Illustrator</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Upload and Analysis Section -->
+    <section id="upload-section" class="py-16 md:py-24">
+        <div class="container mx-auto px-4">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-800 mb-4">Analyze Your Design</h2>
+                <p class="text-lg text-gray-600 max-w-3xl mx-auto">
+                    Upload your design to receive instant AI-powered feedback and scores.
+                </p>
+            </div>
+            <div class="flex flex-col md:flex-row gap-8">
+                <!-- Upload Area -->
+                <div class="md:w-1/2 bg-white rounded-xl shadow-sm p-6">
+                    <div class="upload-area rounded-lg p-8 text-center" id="upload-area">
+                        <input type="file" id="design-upload" accept=".jpg,.png,.pdf" class="hidden">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 text-gray-400 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-8 8-7.903A5 5 0 0115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                        <p class="text-gray-600 mb-4">Drag and drop your design here or click to upload (JPG, PNG, PDF up to 15MB)</p>
+                        <button class="bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-6 rounded-lg transition duration-300">
+                            Select File
+                        </button>
+                    </div>
+                    <div id="preview-area" class="mt-6 hidden">
+                        <h4 class="text-lg font-semibold text-gray-800 mb-4">Design Preview</h4>
+                        <img id="design-preview" src="" alt="Design Preview" class="w-full h-auto rounded-lg">
+                    </div>
+                </div>
+                <!-- Analysis Panel -->
+                <div id="analysis-panel" class="md:w-1/2 bg-white rounded-xl shadow-sm p-6 hidden">
+                    <h3 class="text-xl font-semibold text-gray-800 mb-6">Design Analysis</h3>
+                    <div class="mb-6">
+                        <h4 class="text-lg font-medium text-gray-800 mb-4">Overall Score</h4>
+                        <div class="score-circle mx-auto">
+                            <svg width="120" height="120">
+                                <circle class="score-bg" cx="60" cy="60" r="50"/>
+                                <circle id="score-value" class="score-value" cx="60" cy="60" r="50" stroke="#10B981" stroke-dasharray="314" stroke-dashoffset="0"/>
+                            </svg>
+                            <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-2xl font-bold text-gray-800">
+                                <span id="overall-score">85</span>/100
+                            </div>
+                        </div>
+                    </div>
+                    <div class="space-y-4 mb-6">
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="text-sm font-medium text-gray-700">Visual Harmony</span>
+                                <span class="text-sm font-medium text-gray-700">92%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-green-500 h-2 rounded-full" style="width: 92%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="text-sm font-medium text-gray-700">Typography</span>
+                                <span class="text-sm font-medium text-gray-700">85%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-blue-500 h-2 rounded-full" style="width: 85%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="text-sm font-medium text-gray-700">Color Theory</span>
+                                <span class="text-sm font-medium text-gray-700">90%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-green-500 h-2 rounded-full" style="width: 90%"></div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="flex justify-between mb-1">
+                                <span class="text-sm font-medium text-gray-700">Composition</span>
+                                <span class="text-sm font-medium text-gray-700">78%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-yellow-500 h-2 rounded-full" style="width: 78%"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-purple-50 rounded-lg p-4 border border-purple-100">
+                        <h4 class="font-medium text-purple-800 mb-2">Improvement Suggestions</h4>
+                        <ul class="text-sm text-gray-700 space-y-2" id="suggestions">
+                            <li class="flex items-start">
+                                <i class="fas fa-lightbulb text-yellow-500 mt-1 mr-2"></i>
+                                <span>Consider adjusting the visual hierarchy for better focus</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-lightbulb text-yellow-500 mt-1 mr-2"></i>
+                                <span>Increase contrast between text and background elements</span>
+                            </li>
+                            <li class="flex items-start">
+                                <i class="fas fa-lightbulb text-yellow-500 mt-1 mr-2"></i>
+                                <span>Add more whitespace around key elements</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="mt-6 flex space-x-4">
+                        <button id="download-report-btn" class="bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 px-6 rounded-lg transition duration-300 flex-1">
+                            Download Full Report
+                        </button>
+                        <button id="share-btn" class="border border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-2 px-6 rounded-lg transition duration-300">
+                            <i class="fas fa-share-alt mr-2"></i> Share
+                        </button>
+                    </div>
+                </div>
+                <!-- Loading State -->
+                <div id="loading-state" class="md:w-1/2 bg-gray-50 p-6 border border-gray-200 hidden">
+                    <div class="flex flex-col items-center justify-center h-full">
+                        <div class="w-16 h-16 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mb-6"></div>
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2">Analyzing Your Design</h3>
+                        <p class="text-gray-500 text-center">Our AI is evaluating your design based on professional standards</p>
+                        <div class="w-full max-w-md mt-8">
+                            <div class="relative pt-1">
+                                <div class="flex mb-2 items-center justify-between">
+                                    <div>
+                                        <span id="analysis-step" class="text-xs font-semibold inline-block py-1 px-2 uppercase rounded-full text-purple-600 bg-purple-200">
+                                            Analyzing composition
+                                        </span>
+                                    </div>
+                                    <div class="text-right">
+                                        <span id="analysis-progress" class="text-xs font-semibold inline-block text-purple-600">
+                                            60%
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="overflow-hidden h-2 mb-4 text-xs flex rounded bg-purple-200">
+                                    <div id="progress-bar" class="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-purple-600" style="width: 60%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="py-16 md:py-24">
+        <div class="container mx-auto px-4">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-800 mb-4">Powerful Features for Designers</h2>
+                <p class="text-lg text-gray-600 max-w-3xl mx-auto">
+                    Discover the tools that make DesignScore the ultimate choice for improving your graphic designs.
+                </p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Feature 1 -->
+                <div class="bg-white rounded-xl shadow-md p-6 transition duration-300 feature-card">
+                    <div class="w-14 h-14 rounded-lg gradient-bg flex items-center justify-center mb-5">
+                        <i class="fas fa-upload text-white text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-800 mb-3">Easy Upload</h3>
+                    <p class="text-gray-600">
+                        Upload your designs in multiple formats (JPG, PNG, PDF) with a simple drag-and-drop interface.
+                    </p>
+                </div>
+                <!-- Feature 2 -->
+                <div class="bg-white rounded-xl shadow-md p-6 transition duration-300 feature-card">
+                    <div class="w-14 h-14 rounded-lg gradient-bg flex items-center justify-center mb-5">
+                        <i class="fas fa-brain text-white text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-800 mb-3">AI-Powered Analysis</h3>
+                    <p class="text-gray-600">
+                        Get instant feedback with our advanced AI, analyzing composition, typography, color theory, and more.
+                    </p>
+                </div>
+                <!-- Feature 3 -->
+                <div class="bg-white rounded-xl shadow-md p-6 transition duration-300 feature-card">
+                    <div class="w-14 h-14 rounded-lg gradient-bg flex items-center justify-center mb-5">
+                        <i class="fas fa-chart-line text-white text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-800 mb-3">Industry Benchmarking</h3>
+                    <p class="text-gray-600">
+                        Compare your designs against industry standards to ensure your work meets professional expectations.
+                    </p>
+                </div>
+                <!-- Feature 4 -->
+                <div class="bg-white rounded-xl shadow-md p-6 transition duration-300 feature-card">
+                    <div class="w-14 h-14 rounded-lg gradient-bg flex items-center justify-center mb-5">
+                        <i class="fas fa-palette text-white text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-800 mb-3">Color Harmony Analysis</h3>
+                    <p class="text-gray-600">
+                        Get detailed feedback on color choices, including harmony, contrast, accessibility, and emotional impact.
+                    </p>
+                </div>
+                <!-- Feature 5 -->
+                <div class="bg-white rounded-xl shadow-md p-6 transition duration-300 feature-card">
+                    <div class="w-14 h-14 rounded-lg gradient-bg flex items-center justify-center mb-5">
+                        <i class="fas fa-font text-white text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-800 mb-3">Typography Assessment</h3>
+                    <p class="text-gray-600">
+                        Evaluate font choices, readability, hierarchy, and spacing to enhance your design's message.
+                    </p>
+                </div>
+                <!-- Feature 6 -->
+                <div class="bg-white rounded-xl shadow-md p-6 transition duration-300 feature-card">
+                    <div class="w-14 h-14 rounded-lg gradient-bg flex items-center justify-center mb-5">
+                        <i class="fas fa-file-export text-white text-2xl"></i>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-800 mb-3">Detailed Reports</h3>
+                    <p class="text-gray-600">
+                        Download comprehensive reports with detailed analysis and suggestions for collaboration.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section id="how-it-works" class="py-16 md:py-24">
+        <div class="container mx-auto px-4">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-800 mb-4">How It Works</h2>
+                <p class="text-lg text-gray-600 max-w-3xl mx-auto">
+                    Getting professional feedback on your designs is simple with our three-step process.
+                </p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                <!-- Step 1 -->
+                <div class="bg-white rounded-xl shadow-md p-6 relative">
+                    <div class="absolute -top-4 -left-4 w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-lg">1</div>
+                    <div class="mb-4 h-48 bg-gray-100 rounded-lg flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-8 8-7.903A5 5 0 0115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-800 mb-2">Upload Your Design</h3>
+                    <p class="text-gray-600">
+                        Simply upload your design file in JPG, PNG, or PDF format. Our system accepts files up to 15MB in size.
+                    </p>
+                </div>
+                <!-- Step 2 -->
+                <div class="bg-white rounded-xl shadow-md p-6 relative">
+                    <div class="absolute -top-4 -left-4 w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-lg">2</div>
+                    <div class="mb-4 h-48 bg-gray-100 rounded-lg flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-800 mb-2">AI Analysis</h3>
+                    <p class="text-gray-600">
+                        Our advanced AI analyzes your design based on professional standards, evaluating multiple aspects of your work.
+                    </p>
+                </div>
+                <!-- Step 3 -->
+                <div class="bg-white rounded-xl shadow-md p-6 relative">
+                    <div class="absolute -top-4 -left-4 w-10 h-10 rounded-full bg-purple-600 text-white flex items-center justify-center font-bold text-lg">3</div>
+                    <div class="mb-4 h-48 bg-gray-100 rounded-lg flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-12a2 2 0 00-2-2h-2M9 5a2 2 0 012 2h2a2 2 0 012-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-semibold text-gray-800 mb-2">Get Detailed Feedback</h3>
+                    <p class="text-gray-600">
+                        Receive comprehensive scores, specific suggestions, and actionable insights to improve your design quality.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Testimonials Section -->
+    <section id="testimonials" class="py-16 md:py-24 bg-gray-50">
+        <div class="container mx-auto px-4">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-800 mb-4">What Designers Say</h2>
+                <p class="text-lg text-gray-600 max-w-3xl mx-auto">
+                    Hear from professional designers who have improved their work with DesignScore.
+                </p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+                <!-- Testimonial 1 -->
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <div class="flex items-center mb-4">
+                        <div class="text-yellow-400 flex">
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <span class="ml-2 text-gray-600 text-sm">5.0</span>
+                    </div>
+                    <p class="text-gray-600 mb-6">
+                        "DesignScore has been a game-changer for my workflow. The detailed feedback helped me identify issues I hadn't noticed and significantly improved my design quality."
+                    </p>
+                    <div class="flex items-center">
+                        <div class="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center mr-4">
+                            <span class="text-purple-600 font-semibold">JM</span>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-800">Jessica Martinez</h4>
+                            <p class="text-gray-500 text-sm">Senior Graphic Designer</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Testimonial 2 -->
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <div class="flex items-center mb-4">
+                        <div class="text-yellow-400 flex">
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                        </div>
+                        <span class="ml-2 text-gray-600 text-sm">5.0</span>
+                    </div>
+                    <p class="text-gray-600 mb-6">
+                        "As a freelance designer, getting objective feedback on my work has always been challenging. DesignScore provides professional analysis that helps me deliver better results to my clients."
+                    </p>
+                    <div class="flex items-center">
+                        <div class="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center mr-4">
+                            <span class="text-blue-600 font-semibold">DT</span>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-800">David Thompson</h4>
+                            <p class="text-gray-500 text-sm">Freelance Designer</p>
+                        </div>
+                    </div>
+                </div>
+                <!-- Testimonial 3 -->
+                <div class="bg-white rounded-xl shadow-md p-6">
+                    <div class="flex items-center mb-4">
+                        <div class="text-yellow-400 flex">
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star"></i>
+                            <i class="fas fa-star-half-alt"></i>
+                        </div>
+                        <span class="ml-2 text-gray-600 text-sm">4.5</span>
+                    </div>
+                    <p class="text-gray-600 mb-6">
+                        "I use DesignScore to validate my designs before presenting to clients. The industry benchmarking feature gives me confidence that my work meets professional standards."
+                    </p>
+                    <div class="flex items-center">
+                        <div class="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mr-4">
+                            <span class="text-green-600 font-semibold">AK</span>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-gray-800">Aisha Khan</h4>
+                            <p class="text-gray-500 text-sm">Creative Director</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="py-16 md:py-24">
+        <div class="container mx-auto px-4">
+            <div class="text-center mb-16">
+                <h2 class="text-3xl md:text-4xl font-bold text-gray-800 mb-4">Simple, Transparent Pricing</h2>
+                <p class="text-lg text-gray-600 max-w-3xl mx-auto">
+                    Choose the plan that works best for your design needs.
+                </p>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+                <!-- Free Plan -->
+                <div class="bg-white rounded-xl shadow-md p-6 border border-gray-200">
+                    <div class="text-center mb-6">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2">Free</h3>
+                        <div class="text-3xl font-bold text-gray-800 mb-1">$0 <span class="text-lg text-gray-500">/month</span></div>
+                        <p class="text-gray-500">For occasional use</p>
+                    </div>
+                    <ul class="space-y-3 mb-8">
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-3"></i>
+                            <span class="text-gray-600">3 design analyses per month</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-3"></i>
+                            <span class="text-gray-600">Basic score metrics</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-3"></i>
+                            <span class="text-gray-600">General improvement suggestions</span>
+                        </li>
+                        <li class="flex items-center text-gray-400">
+                            <i class="fas fa-times mr-3"></i>
+                            <span>Detailed reports</span>
+                        </li>
+                        <li class="flex items-center text-gray-400">
+                            <i class="fas fa-times mr-3"></i>
+                            <span>Industry benchmarking</span>
+                        </li>
+                        <li class="flex items-center text-gray-400">
+                            <i class="fas fa-times mr-3"></i>
+                            <span>Priority analysis</span>
+                        </li>
+                    </ul>
+                    <button class="w-full border border-purple-600 text-purple-600 hover:bg-purple-50 font-medium py-2 px-6 rounded-lg transition duration-300">
+                        Get Started
+                    </button>
+                </div>
+                <!-- Pro Plan -->
+                <div class="bg-white rounded-xl shadow-xl p-6 border-2 border-purple-500 transform scale-105 z-10">
+                    <div class="absolute top-0 right-0 bg-purple-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg rounded-tr-lg">
+                        POPULAR
+                    </div>
+                    <div class="text-center mb-6">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2">Pro</h3>
+                        <div class="text-3xl font-bold text-gray-800 mb-1">$19 <span class="text-lg text-gray-500">/month</span></div>
+                        <p class="text-gray-500">For professional designers</p>
+                    </div>
+                    <ul class="space-y-3 mb-8">
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-3"></i>
+                            <span class="text-gray-600">Unlimited design analyses</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-3"></i>
+                            <span class="text-gray-600">Detailed score metrics</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-3"></i>
+                            <span class="text-gray-600">Advanced improvement suggestions</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-3"></i>
+                            <span class="text-gray-600">Detailed reports</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-3"></i>
+                            <span class="text-gray-600">Industry benchmarking</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-3"></i>
+                            <span class="text-gray-600">Priority analysis</span>
+                        </li>
+                    </ul>
+                    <button class="w-full bg-purple-600 text-white hover:bg-purple-700 font-medium py-2 px-6 rounded-lg transition duration-300">
+                        Get Started
+                    </button>
+                </div>
+                <!-- Enterprise Plan -->
+                <div class="bg-white rounded-xl shadow-md p-6 border border-gray-200">
+                    <div class="text-center mb-6">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-2">Enterprise</h3>
+                        <div class="text-3xl font-bold text-gray-800 mb-1">Custom</div>
+                        <p class="text-gray-500">For teams and agencies</p>
+                    </div>
+                    <ul class="space-y-3 mb-8">
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-3"></i>
+                            <span class="text-gray-600">All Pro features</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-3"></i>
+                            <span class="text-gray-600">Team collaboration tools</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-3"></i>
+                            <span class="text-gray-600">Custom integrations</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-3"></i>
+                            <span class="text-gray-600">Dedicated support</span>
+                        </li>
+                        <li class="flex items-center">
+                            <i class="fas fa-check text-green-500 mr-3"></i>
+                            <span class="text-gray-600">API access</span>
+                        </li>
+                    </ul>
+                    <button class="w-full border border-purple-600 text-purple-600 hover:bg-purple-50 font-medium py-2 px-6 rounded-lg transition duration-300">
+                        Contact Us
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        // File upload handling
+        const uploadArea = document.getElementById('upload-area');
+        const fileInput = document.getElementById('design-upload');
+        const previewArea = document.getElementById('preview-area');
+        const designPreview = document.getElementById('design-preview');
+        const analysisPanel = document.getElementById('analysis-panel');
+        const loadingState = document.getElementById('loading-state');
+        const overallScore = document.getElementById('overall-score');
+        const scoreValue = document.getElementById('score-value');
+        const analysisStep = document.getElementById('analysis-step');
+        const analysisProgress = document.getElementById('analysis-progress');
+        const progressBar = document.getElementById('progress-bar');
+        const suggestionsList = document.getElementById('suggestions');
+
+        uploadArea.addEventListener('click', () => fileInput.click());
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            handleFile(file);
+        });
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            handleFile(file);
+        });
+
+        function handleFile(file) {
+            if (!file) return;
+            if (!['image/jpeg', 'image/png', 'application/pdf'].includes(file.type)) {
+                alert('Please upload a JPG, PNG, or PDF file.');
+                return;
+            }
+            if (file.size > 15 * 1024 * 1024) {
+                alert('File size exceeds 15MB limit.');
+                return;
+            }
+
+            // Show preview for images
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    designPreview.src = e.target.result;
+                    previewArea.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                previewArea.classList.add('hidden');
+            }
+
+            // Show loading state
+            analysisPanel.classList.add('hidden');
+            loadingState.classList.remove('hidden');
+
+            // Simulate AI analysis
+            simulateAnalysis(file);
+        }
+
+        function simulateAnalysis(file) {
+            const steps = [
+                { step: 'Analyzing composition', duration: 2000 },
+                { step: 'Evaluating typography', duration: 1500 },
+                { step: 'Assessing color theory', duration: 1500 },
+                { step: 'Comparing to industry standards', duration: 1000 }
+            ];
+            let progress = 0;
+
+            function updateProgress(index) {
+                if (index >= steps.length) {
+                    showAnalysisResults();
+                    return;
+                }
+                analysisStep.textContent = steps[index].step;
+                progress += 25;
+                analysisProgress.textContent = `${progress}%`;
+                progressBar.style.width = `${progress}%`;
+                setTimeout(() => updateProgress(index + 1), steps[index].duration);
+            }
+
+            updateProgress(0);
+        }
+
+        function showAnalysisResults() {
+            // Mock analysis results
+            const scores = {
+                overall: Math.floor(Math.random() * 20 + 80), // 80-100
+                visualHarmony: Math.floor(Math.random() * 15 + 85), // 85-100
+                typography: Math.floor(Math.random() * 20 + 75), // 75-95
+                colorTheory: Math.floor(Math.random() * 15 + 85), // 85-100
+                composition: Math.floor(Math.random() * 20 + 70) // 70-90
+            };
+            const suggestions = [
+                'Consider adjusting the visual hierarchy for better focus',
+                'Increase contrast between text and background elements',
+                'Add more whitespace around key elements',
+                'Experiment with bolder typography for headings'
+            ].slice(0, Math.floor(Math.random() * 2 + 2)); // 2-3 suggestions
+
+            // Update UI
+            overallScore.textContent = scores.overall;
+            scoreValue.setAttribute('stroke-dashoffset', 314 - (314 * scores.overall / 100));
+            document.querySelectorAll('#analysis-panel .space-y-4 > div').forEach((div, i) => {
+                const metric = ['visualHarmony', 'typography', 'colorTheory', 'composition'][i];
+                div.querySelector('.text-sm:last-child').textContent = `${scores[metric]}%`;
+                div.querySelector('.bg-green-500, .bg-blue-500, .bg-yellow-500').style.width = `${scores[metric]}%`;
+            });
+            suggestionsList.innerHTML = suggestions.map(s => `
+                <li class="flex items-start">
+                    <i class="fas fa-lightbulb text-yellow-500 mt-1 mr-2"></i>
+                    <span>${s}</span>
+                </li>
+            `).join('');
+
+            // Show analysis panel
+            loadingState.classList.add('hidden');
+            analysisPanel.classList.remove('hidden');
+        }
+
+        // Download report button (mock)
+        document.getElementById('download-report-btn').addEventListener('click', () => {
+            alert('Report download initiated (mock functionality).');
+        });
+
+        // Share button (mock)
+        document.getElementById('share-btn').addEventListener('click', () => {
+            alert('Share functionality initiated (mock).');
+        });
+    </script>
+</body>
+</html>
